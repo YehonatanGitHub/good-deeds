@@ -76,12 +76,12 @@ function dayName(d) { return ["ראשון", "שני", "שלישי", "רביעי"
 function calcAllowance(logs) {
   const goodW = logs.filter(l => l.type === "good").reduce((s, l) => s + l.weight, 0);
   const badW = logs.filter(l => l.type === "bad").reduce((s, l) => s + l.weight, 0);
-  const net = Math.max(0, goodW - badW);
-  const baseEarned = Math.min(1, net / BASE_TARGET) * BASE_AMOUNT;
-  const bonusDeeds = Math.max(0, net - BASE_TARGET);
-  const bonusEarned = Math.min(1, bonusDeeds / BONUS_TARGET) * BONUS_AMOUNT;
-  const raw = baseEarned + bonusEarned;
-  return Math.round(Math.max(MIN, Math.min(MAX, raw)) * 100) / 100;
+  // Good deeds earn money, bad deeds subtract from it (but never below 0)
+  const earned = Math.min(1, goodW / BASE_TARGET) * BASE_AMOUNT
+    + Math.min(1, Math.max(0, goodW - BASE_TARGET) / BONUS_TARGET) * BONUS_AMOUNT;
+  const penalty = badW * (MAX / TARGET_DEEDS); // each bad deed subtracts ₪0.125
+  const raw = Math.max(0, earned - penalty);
+  return Math.round(Math.min(MAX, raw) * 100) / 100;
 }
 
 function fmtNIS(v) { return v % 1 ? `₪${v.toFixed(2)}` : `₪${v}`; }
@@ -390,7 +390,7 @@ export default function App() {
         </div>
         <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
-            מתחילים מ-₪0 · 40 מעשים טובים → ₪5 · 20 נוספים → ₪7.50 · מעשים לא טובים מפחיתים · 🏆🚫 כפול 2
+            מתחילים מ-₪0 · 40 מעשים טובים → ₪5 · 20 נוספים → ₪7.50 · מעשים לא טובים מפחיתים מהכסף · 🏆🚫 כפול 2
           </div>
         </div>
       </div>
@@ -607,8 +607,8 @@ export default function App() {
           כל ילד מתחיל מ-<b style={{ color: "#FF453A" }}>₪0</b> כל שבוע (ראשון–שבת) וצריך להרוויח את דמי הכיס!<br /><br />
           <b style={{ color: "#30D158" }}>40 מעשים טובים ראשונים</b> → מרוויחים עד <b style={{ color: "#FFD60A" }}>₪5</b> (~6 ביום)<br /><br />
           <b style={{ color: "#FFD60A" }}>20 מעשים נוספים</b> → בונוס עד <b style={{ color: "#30D158" }}>₪7.50</b> (~3 ביום)<br /><br />
-          מעשים לא טובים <b style={{ color: "#FF453A" }}>מפחיתים</b> מהמעשים הטובים (נטו).<br /><br />
-          <b>דוגמה:</b> 30 טוב − 5 לא טוב = 25 נטו → 25/40 × ₪5 = <b style={{ color: "#30D158" }}>₪3.13</b><br /><br />
+          מעשים לא טובים <b style={{ color: "#FF453A" }}>מפחיתים מהכסף</b> שנצבר (₪0.125 לכל מעשה), אבל לא מתחת ל-₪0.<br /><br />
+          <b>דוגמה:</b> 10 טוב = ₪1.25, אחרי 3 לא טובים → ₪1.25 − ₪0.38 = <b style={{ color: "#30D158" }}>₪0.88</b><br /><br />
           🏆 מאמץ מיוחד ו-🚫 התנהגות חמורה נספרים <b style={{ color: "#FFD60A" }}>כפול 2</b>.<br /><br />
           טווח: ₪0 – ₪7.50 לילד.
         </div>

@@ -43,7 +43,8 @@ npm run preview
 
 - **3 children** are tracked with individual profiles (name, age, avatar, color)
 - **Good deeds** (12 predefined + custom) add points; **bad deeds** (10 predefined) subtract points
-- **Allowance calculation**: 40 net good deeds = 5 ILS base, 20 more = 2.50 ILS bonus (max 7.50 ILS/week)
+- **Allowance calculation**: Each good deed earns ~₪0.125. 40 good deeds = ₪5 base, 20 more = ₪2.50 bonus (max ₪7.50/week)
+- **Bad deeds subtract from money earned** (₪0.125 each) but the balance never goes below ₪0. Good deeds always count — bad deeds only reduce the amount earned
 - **Special deeds** (marked with a trophy or stop sign) count double
 - **Weekly cycle** runs Sunday to Saturday with navigation between weeks
 - All data is saved to the browser's localStorage and persists across sessions
