@@ -81,7 +81,7 @@ function calcAllowance(logs) {
   const bonusDeeds = Math.max(0, net - BASE_TARGET);
   const bonusEarned = Math.min(1, bonusDeeds / BONUS_TARGET) * BONUS_AMOUNT;
   const raw = baseEarned + bonusEarned;
-  return Math.round(Math.max(MIN, Math.min(MAX, raw)) * 4) / 4;
+  return Math.round(Math.max(MIN, Math.min(MAX, raw)) * 100) / 100;
 }
 
 function fmtNIS(v) { return v % 1 ? `₪${v.toFixed(2)}` : `₪${v}`; }
