@@ -74,8 +74,8 @@ function fmtTime(d) { return d.toLocaleTimeString("he-IL", { hour: "2-digit", mi
 function dayName(d) { return ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"][d.getDay()]; }
 
 function calcAllowance(logs) {
-  const goodW = logs.filter(l => l.type === "good").reduce((s, l) => s + l.weight, 0);
-  const badW = logs.filter(l => l.type === "bad").reduce((s, l) => s + l.weight, 0);
+  const goodW = logs.filter(l => l.type === "good").reduce((s, l) => s + (l.weight || 1), 0);
+  const badW = logs.filter(l => l.type === "bad").reduce((s, l) => s + (l.weight || 1), 0);
   // Good deeds earn money, bad deeds subtract from it (but never below 0)
   const earned = Math.min(1, goodW / BASE_TARGET) * BASE_AMOUNT
     + Math.min(1, Math.max(0, goodW - BASE_TARGET) / BONUS_TARGET) * BONUS_AMOUNT;
@@ -138,6 +138,8 @@ export default function App() {
   const [tmpNames, setTmpNames] = useState({});
   const [confettiKey, setConfettiKey] = useState(0);
   const [customBadDeeds, setCustomBadDeeds] = useState(() => Store.load("customBadDeeds", []));
+  const [goodDeedsConfig, setGoodDeedsConfig] = useState(() => Store.load("goodDeedsConfig", GOOD_DEEDS_DEFAULT));
+  const [badDeedsConfig, setBadDeedsConfig] = useState(() => Store.load("badDeedsConfig", BAD_DEEDS));
   const [syncStatus, setSyncStatus] = useState(() => isConfigured() ? "connecting" : "offline");
   const skipNextRealtime = useRef(false);
 
@@ -146,6 +148,8 @@ export default function App() {
   useEffect(() => { Store.save("kids", kids); }, [kids]);
   useEffect(() => { Store.save("customGoodDeeds", customGoodDeeds); }, [customGoodDeeds]);
   useEffect(() => { Store.save("customBadDeeds", customBadDeeds); }, [customBadDeeds]);
+  useEffect(() => { Store.save("goodDeedsConfig", goodDeedsConfig); }, [goodDeedsConfig]);
+  useEffect(() => { Store.save("badDeedsConfig", badDeedsConfig); }, [badDeedsConfig]);
 
   // Merge DB kids with local avatars (avatars are too large for DB)
   const mergeKidsWithAvatars = useCallback((dbKids) => {
@@ -216,14 +220,14 @@ export default function App() {
   }, [mergeKidsWithAvatars, reloadKids, reloadLogs, reloadCustomGoodDeeds, reloadCustomBadDeeds]);
 
   const GOOD_DEEDS = useMemo(() => [
-    ...GOOD_DEEDS_DEFAULT,
-    ...customGoodDeeds.map(d => ({ label: d.label, emoji: d.emoji || "✨", weight: 1 })),
-  ], [customGoodDeeds]);
+    ...goodDeedsConfig,
+    ...customGoodDeeds.map(d => ({ label: d.label, emoji: d.emoji || "✨", weight: d.weight || 1 })),
+  ], [goodDeedsConfig, customGoodDeeds]);
 
   const ALL_BAD_DEEDS = useMemo(() => [
-    ...BAD_DEEDS,
-    ...customBadDeeds.map(d => ({ label: d.label, emoji: d.emoji || "💢", weight: 1 })),
-  ], [customBadDeeds]);
+    ...badDeedsConfig,
+    ...customBadDeeds.map(d => ({ label: d.label, emoji: d.emoji || "💢", weight: d.weight || 1 })),
+  ], [badDeedsConfig, customBadDeeds]);
 
   const wk = useMemo(() => weekRange(wkOff), [wkOff]);
 
@@ -449,24 +453,43 @@ export default function App() {
   };
 
   // ─── SETTINGS ─────────────────────────────────────────────────────
-  const CustomDeedsManager = () => {
+  const GoodDeedsEditor = () => {
+    const [editIdx, setEditIdx] = useState(null);
+    const [editLabel, setEditLabel] = useState("");
     const [newDeed, setNewDeed] = useState("");
     const [newEmoji, setNewEmoji] = useState("✨");
+    const [newWeight, setNewWeight] = useState(1);
+
+    const togglePredefinedWeight = (i) => {
+      setGoodDeedsConfig(prev => prev.map((d, idx) => idx === i ? { ...d, weight: d.weight === 2 ? 1 : 2 } : d));
+    };
+
+    const savePredefinedLabel = (i) => {
+      if (editLabel.trim()) {
+        setGoodDeedsConfig(prev => prev.map((d, idx) => idx === i ? { ...d, label: editLabel.trim() } : d));
+      }
+      setEditIdx(null);
+    };
+
+    const toggleCustomWeight = (id) => {
+      setCustomGoodDeeds(prev => prev.map(d => d.id === id ? { ...d, weight: (d.weight || 1) === 2 ? 1 : 2 } : d));
+    };
 
     const addCustom = async () => {
       if (!newDeed.trim()) return;
-      const deed = { label: newDeed.trim(), emoji: newEmoji };
+      const deed = { label: newDeed.trim(), emoji: newEmoji, weight: newWeight };
       if (isConfigured()) {
         try {
           skipNextRealtime.current = true;
           const saved = await insertCustomGoodDeed(deed);
-          setCustomGoodDeeds(p => [...p, saved]);
+          setCustomGoodDeeds(p => [...p, { ...saved, weight: newWeight }]);
         } catch (e) { console.error(e); }
       } else {
         setCustomGoodDeeds(p => [...p, { id: Date.now(), ...deed }]);
       }
       setNewDeed("");
       setNewEmoji("✨");
+      setNewWeight(1);
       flash("!מעשה טוב נוסף");
     };
 
@@ -476,57 +499,125 @@ export default function App() {
       flash("הוסר", "info");
     };
 
+    const WeightBtn = ({ weight, onToggle }) => (
+      <button onClick={onToggle} title="החלף בין 1× ל-2×" style={{
+        background: weight === 2 ? "rgba(255,214,10,0.18)" : "rgba(255,255,255,0.06)",
+        border: weight === 2 ? "1px solid rgba(255,214,10,0.35)" : "1px solid rgba(255,255,255,0.1)",
+        color: weight === 2 ? "#FFD60A" : "rgba(255,255,255,0.35)",
+        borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", minWidth: 30,
+      }}>{weight}×</button>
+    );
+
     return (
       <div style={cardStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>⭐ מעשים טובים מותאמים</div>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 12, marginTop: 0 }}>הוסף מעשים טובים שיופיעו תמיד ברשימה.</p>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4 }}>⭐ מעשים טובים</div>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 12, marginTop: 0 }}>לחץ על שם המעשה לעריכה · לחץ על ×/2× להחלפת נקודות</p>
 
-        {/* Existing custom deeds */}
+        {/* Predefined deeds */}
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>ברירת מחדל</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 }}>
+          {goodDeedsConfig.map((deed, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ fontSize: 16 }}>{deed.emoji}</span>
+              {editIdx === i ? (
+                <input
+                  value={editLabel}
+                  onChange={e => setEditLabel(e.target.value)}
+                  onBlur={() => savePredefinedLabel(i)}
+                  onKeyDown={e => { if (e.key === "Enter") savePredefinedLabel(i); if (e.key === "Escape") setEditIdx(null); }}
+                  style={{ ...inputStyle, flex: 1, padding: "3px 8px", fontSize: 13 }}
+                  autoFocus
+                />
+              ) : (
+                <span
+                  onClick={() => { setEditIdx(i); setEditLabel(deed.label); }}
+                  style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)", cursor: "text" }}
+                >{deed.label}</span>
+              )}
+              <WeightBtn weight={deed.weight} onToggle={() => togglePredefinedWeight(i)} />
+            </div>
+          ))}
+        </div>
+
+        {/* Custom deeds */}
         {customGoodDeeds.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-            {customGoodDeeds.map(d => (
-              <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <span style={{ fontSize: 16 }}>{d.emoji}</span>
-                <span style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{d.label}</span>
-                <button onClick={() => removeCustom(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>✕</button>
-              </div>
-            ))}
-          </div>
+          <>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>מותאמים אישית</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 }}>
+              {customGoodDeeds.map(d => (
+                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 16 }}>{d.emoji}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{d.label}</span>
+                  <WeightBtn weight={d.weight || 1} onToggle={() => toggleCustomWeight(d.id)} />
+                  <button onClick={() => removeCustom(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Add new */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>הוסף חדש</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <select value={newEmoji} onChange={e => setNewEmoji(e.target.value)} style={{ ...inputStyle, width: 50, padding: "8px 4px", textAlign: "center", flex: "none" }}>
-            {["✨", "🌟", "💪", "🎯", "📖", "🧹", "🍽️", "🐕", "🌱", "🎨", "🏃", "🙏"].map(e => (
-              <option key={e} value={e}>{e}</option>
-            ))}
+            {["✨", "🌟", "💪", "🎯", "📖", "🧹", "🍽️", "🐕", "🌱", "🎨", "🏃", "🙏"].map(e => <option key={e} value={e}>{e}</option>)}
           </select>
           <input value={newDeed} onChange={e => setNewDeed(e.target.value)} onKeyDown={e => e.key === "Enter" && addCustom()}
-            style={{ ...inputStyle, textAlign: "right" }} placeholder="שם המעשה הטוב..." />
+            style={{ ...inputStyle, textAlign: "right", flex: 1, minWidth: 100 }} placeholder="שם המעשה הטוב..." />
+          <button onClick={() => setNewWeight(w => w === 1 ? 2 : 1)} title="בחר נקודות" style={{
+            background: newWeight === 2 ? "rgba(255,214,10,0.18)" : "rgba(255,255,255,0.06)",
+            border: newWeight === 2 ? "1px solid rgba(255,214,10,0.35)" : "1px solid rgba(255,255,255,0.1)",
+            color: newWeight === 2 ? "#FFD60A" : "rgba(255,255,255,0.35)",
+            borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>{newWeight}×</button>
           <button onClick={addCustom} style={{ ...actBtn, background: "rgba(52,199,89,0.15)", color: "#30D158", whiteSpace: "nowrap", flexShrink: 0 }}>הוסף</button>
         </div>
+
+        <button onClick={() => { setGoodDeedsConfig(GOOD_DEEDS_DEFAULT); flash("!המעשים אופסו"); }}
+          style={{ ...actBtn, marginTop: 10, background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.25)", fontSize: 11 }}>
+          ↺ אפס לברירת מחדל
+        </button>
       </div>
     );
   };
 
-  const CustomBadDeedsManager = () => {
+  const BadDeedsEditor = () => {
+    const [editIdx, setEditIdx] = useState(null);
+    const [editLabel, setEditLabel] = useState("");
     const [newDeed, setNewDeed] = useState("");
     const [newEmoji, setNewEmoji] = useState("💢");
+    const [newWeight, setNewWeight] = useState(1);
+
+    const togglePredefinedWeight = (i) => {
+      setBadDeedsConfig(prev => prev.map((d, idx) => idx === i ? { ...d, weight: d.weight === 2 ? 1 : 2 } : d));
+    };
+
+    const savePredefinedLabel = (i) => {
+      if (editLabel.trim()) {
+        setBadDeedsConfig(prev => prev.map((d, idx) => idx === i ? { ...d, label: editLabel.trim() } : d));
+      }
+      setEditIdx(null);
+    };
+
+    const toggleCustomWeight = (id) => {
+      setCustomBadDeeds(prev => prev.map(d => d.id === id ? { ...d, weight: (d.weight || 1) === 2 ? 1 : 2 } : d));
+    };
 
     const addCustom = async () => {
       if (!newDeed.trim()) return;
-      const deed = { label: newDeed.trim(), emoji: newEmoji };
+      const deed = { label: newDeed.trim(), emoji: newEmoji, weight: newWeight };
       if (isConfigured()) {
         try {
           skipNextRealtime.current = true;
           const saved = await insertCustomBadDeed(deed);
-          setCustomBadDeeds(p => [...p, saved]);
+          setCustomBadDeeds(p => [...p, { ...saved, weight: newWeight }]);
         } catch (e) { console.error(e); }
       } else {
         setCustomBadDeeds(p => [...p, { id: Date.now(), ...deed }]);
       }
       setNewDeed("");
       setNewEmoji("💢");
+      setNewWeight(1);
       flash("!מעשה לא טוב נוסף");
     };
 
@@ -536,33 +627,84 @@ export default function App() {
       flash("הוסר", "info");
     };
 
+    const WeightBtn = ({ weight, onToggle }) => (
+      <button onClick={onToggle} title="החלף בין 1× ל-2×" style={{
+        background: weight === 2 ? "rgba(255,69,58,0.18)" : "rgba(255,255,255,0.06)",
+        border: weight === 2 ? "1px solid rgba(255,69,58,0.35)" : "1px solid rgba(255,255,255,0.1)",
+        color: weight === 2 ? "#FF453A" : "rgba(255,255,255,0.35)",
+        borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", minWidth: 30,
+      }}>{weight}×</button>
+    );
+
     return (
       <div style={cardStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>⚡ מעשים לא טובים מותאמים</div>
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 12, marginTop: 0 }}>הוסף מעשים לא טובים שיופיעו תמיד ברשימה.</p>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 4 }}>⚡ מעשים לא טובים</div>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 12, marginTop: 0 }}>לחץ על שם המעשה לעריכה · לחץ על ×/2× להחלפת נקודות</p>
 
+        {/* Predefined deeds */}
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>ברירת מחדל</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 }}>
+          {badDeedsConfig.map((deed, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ fontSize: 16 }}>{deed.emoji}</span>
+              {editIdx === i ? (
+                <input
+                  value={editLabel}
+                  onChange={e => setEditLabel(e.target.value)}
+                  onBlur={() => savePredefinedLabel(i)}
+                  onKeyDown={e => { if (e.key === "Enter") savePredefinedLabel(i); if (e.key === "Escape") setEditIdx(null); }}
+                  style={{ ...inputStyle, flex: 1, padding: "3px 8px", fontSize: 13 }}
+                  autoFocus
+                />
+              ) : (
+                <span
+                  onClick={() => { setEditIdx(i); setEditLabel(deed.label); }}
+                  style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)", cursor: "text" }}
+                >{deed.label}</span>
+              )}
+              <WeightBtn weight={deed.weight} onToggle={() => togglePredefinedWeight(i)} />
+            </div>
+          ))}
+        </div>
+
+        {/* Custom deeds */}
         {customBadDeeds.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-            {customBadDeeds.map(d => (
-              <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <span style={{ fontSize: 16 }}>{d.emoji}</span>
-                <span style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{d.label}</span>
-                <button onClick={() => removeCustom(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>✕</button>
-              </div>
-            ))}
-          </div>
+          <>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>מותאמים אישית</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 }}>
+              {customBadDeeds.map(d => (
+                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ fontSize: 16 }}>{d.emoji}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{d.label}</span>
+                  <WeightBtn weight={d.weight || 1} onToggle={() => toggleCustomWeight(d.id)} />
+                  <button onClick={() => removeCustom(d.id)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {/* Add new */}
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", marginBottom: 5, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase" }}>הוסף חדש</div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
           <select value={newEmoji} onChange={e => setNewEmoji(e.target.value)} style={{ ...inputStyle, width: 50, padding: "8px 4px", textAlign: "center", flex: "none" }}>
-            {["💢", "😤", "🙉", "📱", "😫", "😠", "🤥", "⚠️", "🚫", "👎"].map(e => (
-              <option key={e} value={e}>{e}</option>
-            ))}
+            {["💢", "😤", "🙉", "📱", "😫", "😠", "🤥", "⚠️", "🚫", "👎"].map(e => <option key={e} value={e}>{e}</option>)}
           </select>
           <input value={newDeed} onChange={e => setNewDeed(e.target.value)} onKeyDown={e => e.key === "Enter" && addCustom()}
-            style={{ ...inputStyle, textAlign: "right" }} placeholder="שם המעשה הלא טוב..." />
+            style={{ ...inputStyle, textAlign: "right", flex: 1, minWidth: 100 }} placeholder="שם המעשה הלא טוב..." />
+          <button onClick={() => setNewWeight(w => w === 1 ? 2 : 1)} title="בחר נקודות" style={{
+            background: newWeight === 2 ? "rgba(255,69,58,0.18)" : "rgba(255,255,255,0.06)",
+            border: newWeight === 2 ? "1px solid rgba(255,69,58,0.35)" : "1px solid rgba(255,255,255,0.1)",
+            color: newWeight === 2 ? "#FF453A" : "rgba(255,255,255,0.35)",
+            borderRadius: 8, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          }}>{newWeight}×</button>
           <button onClick={addCustom} style={{ ...actBtn, background: "rgba(255,69,58,0.15)", color: "#FF453A", whiteSpace: "nowrap", flexShrink: 0 }}>הוסף</button>
         </div>
+
+        <button onClick={() => { setBadDeedsConfig(BAD_DEEDS); flash("!המעשים אופסו"); }}
+          style={{ ...actBtn, marginTop: 10, background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.25)", fontSize: 11 }}>
+          ↺ אפס לברירת מחדל
+        </button>
       </div>
     );
   };
@@ -604,8 +746,8 @@ export default function App() {
         )}
       </div>
 
-      <CustomDeedsManager />
-      <CustomBadDeedsManager />
+      <GoodDeedsEditor />
+      <BadDeedsEditor />
 
       <div style={cardStyle}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 10 }}>📋 איך זה עובד</div>
