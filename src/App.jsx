@@ -323,8 +323,14 @@ export default function App() {
   const Dashboard = () => (
     <div>
       <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>השבוע</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2, direction: "ltr" }}>{fmtDate(wk.start)} – {fmtDate(wk.end)}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <button onClick={() => setWkOff(wkOff - 1)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.5)", fontSize: 20, cursor: "pointer", padding: "0 4px", lineHeight: 1 }}>‹</button>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.7)" }}>{wkOff === 0 ? "השבוע" : wkOff === -1 ? "שבוע שעבר" : `לפני ${Math.abs(wkOff)} שבועות`}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 2, direction: "ltr" }}>{fmtDate(wk.start)} – {fmtDate(wk.end)}</div>
+          </div>
+          <button onClick={() => setWkOff(wkOff + 1)} disabled={wkOff >= 0} style={{ background: "none", border: "none", color: wkOff >= 0 ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.5)", fontSize: 20, cursor: wkOff >= 0 ? "default" : "pointer", padding: "0 4px", lineHeight: 1 }}>›</button>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
