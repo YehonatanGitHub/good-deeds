@@ -342,8 +342,6 @@ export default function App() {
           const kl = kidLogs(kid.id);
           const goodW = kl.filter(l => l.type === "good").reduce((s, l) => s + l.weight, 0);
           const badW = kl.filter(l => l.type === "bad").reduce((s, l) => s + l.weight, 0);
-          const goodCount = kl.filter(l => l.type === "good").length;
-          const badCount = kl.filter(l => l.type === "bad").length;
           const allowance = calcAllowance(kl);
           const gc = allowance > BASE_AMOUNT ? "#FFD60A" : "#30D158";
 
@@ -360,8 +358,8 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                    <Badge type="good" count={goodCount} />
-                    <Badge type="bad" count={badCount} />
+                    <Badge type="good" count={goodW} />
+                    <Badge type="bad" count={badW} />
                   </div>
                   <ProgressBar good={goodW} bad={badW} />
                   {wkOff === 0 && (
