@@ -76,12 +76,12 @@ function dayName(d) { return ["ראשון", "שני", "שלישי", "רביעי"
 function calcAllowance(logs) {
   const goodW = logs.filter(l => l.type === "good").reduce((s, l) => s + (l.weight || 1), 0);
   const badW = logs.filter(l => l.type === "bad").reduce((s, l) => s + (l.weight || 1), 0);
-  // Good deeds earn money, bad deeds subtract from it (but never below 0)
+  // Good deeds earn money; bad deeds lower the ceiling (max achievable), not what was already earned
   const earned = Math.min(1, goodW / BASE_TARGET) * BASE_AMOUNT
     + Math.min(1, Math.max(0, goodW - BASE_TARGET) / BONUS_TARGET) * BONUS_AMOUNT;
-  const penalty = badW * (MAX / TARGET_DEEDS); // each bad deed subtracts ₪0.125
-  const raw = Math.max(0, earned - penalty);
-  return Math.round(Math.min(MAX, raw) * 100) / 100;
+  const penalty = badW * (MAX / TARGET_DEEDS); // each bad deed lowers max by ₪0.125
+  const ceiling = Math.max(0, MAX - penalty);
+  return Math.round(Math.min(ceiling, earned) * 100) / 100;
 }
 
 function fmtNIS(v) { return v % 1 ? `₪${v.toFixed(2)}` : `₪${v}`; }
