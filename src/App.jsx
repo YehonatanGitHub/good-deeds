@@ -74,14 +74,18 @@ function fmtTime(d) { return d.toLocaleTimeString("he-IL", { hour: "2-digit", mi
 function dayName(d) { return ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"][d.getDay()]; }
 
 function calcAllowance(logs) {
-  const goodW = logs.filter(l => l.type === "good").reduce((s, l) => s + (l.weight || 1), 0);
-  const badW = logs.filter(l => l.type === "bad").reduce((s, l) => s + (l.weight || 1), 0);
-  // Good deeds earn money; bad deeds lower the ceiling (max achievable), not what was already earned
-  const earned = Math.min(1, goodW / BASE_TARGET) * BASE_AMOUNT
-    + Math.min(1, Math.max(0, goodW - BASE_TARGET) / BONUS_TARGET) * BONUS_AMOUNT;
-  const penalty = badW * (MAX / TARGET_DEEDS); // each bad deed lowers max by ₪0.125
-  const ceiling = Math.max(0, MAX - penalty);
-  return Math.round(Math.min(ceiling, earned) * 100) / 100;
+  const STEP = MAX / TARGET_DEEDS; // ₪0.125 per deed weight
+  const sorted = [...logs].sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  let balance = 0;
+  for (const log of sorted) {
+    const delta = (log.weight || 1) * STEP;
+    if (log.type === "good") {
+      balance = Math.min(MAX, balance + delta);
+    } else {
+      balance = Math.max(0, balance - delta);
+    }
+  }
+  return Math.round(balance * 100) / 100;
 }
 
 function fmtNIS(v) { return v % 1 ? `₪${v.toFixed(2)}` : `₪${v}`; }
