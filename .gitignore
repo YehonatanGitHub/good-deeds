@@ -2,3 +2,7 @@ node_modules
 dist
 .env
 .env.local
+
+# Child avatar images - kept local only, not committed to repo
+public/avatars/
+src/assets/avatars/

@@ -10,9 +10,9 @@ import {
 
 // ─── CONFIG ─────────────────────────────────────────────────────────
 const KIDS_DEFAULT = [
-  { id: 1, name: "יוסף", age: 11, emoji: "🤠", color: "#FF6B6B", avatar: "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA4KCw0LCQ4NDA0QDw4RFiQXFhQUFiwgIRokNC43NjMuMjI6QVNGOj1OPjIySGJJTlZYXV5dOEVmbWVabFNbXVn/2wBDAQ8QEBYTFioXFypZOzI7WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVn/wAARCABQAFADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDs6patfjT7J5sAsOFB9au1y/jhiLS2XPDOc/gKBnJXl7NeTNPO5d29e1Njt3kTOKS3i86VVFdBbQKqBSKiTsaRVzm2hYE8UYA6da6eSxjfoMGqk+lEqWUc+lTzFchiZ2kE5FdN4R1OYXgsyd0LgkA/wn2rBntpEG11I9D61Y0vfY6pau2V+cZ+lUmiWmemUtJS1RmNrkvHR/dWY75b+ldbXJ+OlJtrVgpO1zk+nFAGBpEYLse4FbajHWszSYitm0n8TGo7qaNCd7SOR129qhq7NU7I30xUoAIrE06RWK7S4z2ar2oSGCDdvKe9S0WmW2iVuoBrD1UbL6HtyP51Hb3rM/y3Mmc9xxVm+jad7N2I3GTYTSSsxt3R3i/dH0paRPuilrY5hKxfE0KS6eu/oH/pW1WdrcHn2ODnCsGND2HHc5u1iCWioKa2moVO5Ac8mriDaACKlEgVeaybfQ3SXUzraz8uUHGAOlaN/Z/aI1BHbpVdp9r7iCTngCrC3vmts2ncBwcVEr7lq2xRg0mNU2EEDOever/2RS1tHn7sgNWI3Drk8GnIm+eI5+62RSu29QaSRuUUUV0nIJVe6AYwo33GkGfwBI/UCrFRXMIngaMkrnow6qexpgZusRYdJQOo2msWdiqEjnHat+5Zp9JLygCRPvAdMg4NYDnNZy3NYPQrR3IkPKEEdm4qwt3HDgspXPpzTTGT0AJqWFHU/Mox9KTtY1iSW1z5y7lyAa3tOiHleYR8x6GsS1iMs6ouBuNdHblfKVAeVGCO4NKC1uRUeliaiiitTASoTJI4xGhU/wB5xwPw706SRY1JPOPSqkl07HA+UY/GmBFqV1Bb2UluH3SsMY789zXPnkU68Ro7qQMc7juB9QaiDYrN7msVoLvZakjkduKaBup4O3gVLLRf04rHdRFiAM8k1vSRrI65AyOc965qP5hXS26kQRhuWCjOaIPoTUXUlooorUxP/9k=" },
-  { id: 2, name: "שיראל", age: 9, emoji: "🧙‍♀️", color: "#4ECDC4", avatar: "data:image/jpeg;base64,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" },
-  { id: 3, name: "יהודה", age: 6, emoji: "👮", color: "#FFD93D", avatar: "data:image/jpeg;base64,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" },
+  { id: 1, name: "יוסף", age: 11, emoji: "🤠", color: "#FF6B6B", avatar: null },
+  { id: 2, name: "שיראל", age: 9, emoji: "🧙‍♀️", color: "#4ECDC4", avatar: null },
+  { id: 3, name: "יהודה", age: 6, emoji: "👮", color: "#FFD93D", avatar: null },
 ];
 
 const GOOD_DEEDS_DEFAULT = [
@@ -146,20 +146,21 @@ export default function App() {
   const [badDeedsConfig, setBadDeedsConfig] = useState(() => Store.load("badDeedsConfig", BAD_DEEDS));
   const [syncStatus, setSyncStatus] = useState(() => isConfigured() ? "connecting" : "offline");
   const skipNextRealtime = useRef(false);
+  const kidsRef = useRef(Store.load("kids", KIDS_DEFAULT));
 
   // Save to localStorage (always)
   useEffect(() => { Store.save("logs", logs); }, [logs]);
-  useEffect(() => { Store.save("kids", kids); }, [kids]);
+  useEffect(() => { Store.save("kids", kids); kidsRef.current = kids; }, [kids]);
   useEffect(() => { Store.save("customGoodDeeds", customGoodDeeds); }, [customGoodDeeds]);
   useEffect(() => { Store.save("customBadDeeds", customBadDeeds); }, [customBadDeeds]);
   useEffect(() => { Store.save("goodDeedsConfig", goodDeedsConfig); }, [goodDeedsConfig]);
   useEffect(() => { Store.save("badDeedsConfig", badDeedsConfig); }, [badDeedsConfig]);
 
-  // Merge DB kids with local avatars (avatars are too large for DB)
+  // Merge DB kids with local avatars (avatars are stored locally, not in DB)
   const mergeKidsWithAvatars = useCallback((dbKids) => {
     return dbKids.map(k => {
-      const def = KIDS_DEFAULT.find(d => d.id === k.id);
-      return { ...k, avatar: def?.avatar || k.avatar };
+      const local = kidsRef.current.find(d => d.id === k.id);
+      return { ...k, avatar: local?.avatar || null };
     });
   }, []);
 
@@ -748,6 +749,43 @@ export default function App() {
               style={{ ...actBtn, marginTop: 8, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>ערוך שמות</button>
           </div>
         )}
+      </div>
+
+      <div style={cardStyle}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>🖼️ תמונות ילדים</div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 12 }}>
+          התמונות נשמרות רק במכשיר זה ולא מועלות לגיט.
+        </div>
+        {kids.map(kid => (
+          <div key={kid.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", background: "rgba(255,255,255,0.1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
+              {kid.avatar ? <img src={kid.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : kid.emoji}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>{kid.name}</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <label style={{ ...actBtn, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>
+                  העלה תמונה
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = ev => {
+                      setKids(prev => prev.map(k => k.id === kid.id ? { ...k, avatar: ev.target.result } : k));
+                      flash("!התמונה נשמרה");
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = "";
+                  }} />
+                </label>
+                {kid.avatar && (
+                  <button onClick={() => { setKids(prev => prev.map(k => k.id === kid.id ? { ...k, avatar: null } : k)); flash("התמונה הוסרה"); }}
+                    style={{ ...actBtn, background: "rgba(255,69,58,0.12)", color: "#FF453A" }}>הסר</button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       <GoodDeedsEditor />
