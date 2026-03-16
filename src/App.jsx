@@ -714,7 +714,9 @@ export default function App() {
     );
   };
 
-  const Settings = () => (
+  const Settings = () => {
+    const [urlInputs, setUrlInputs] = useState({});
+    return (
     <div>
       <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 20 }}>הגדרות</div>
       <div style={cardStyle}>
@@ -754,18 +756,18 @@ export default function App() {
       <div style={cardStyle}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>🖼️ תמונות ילדים</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 12 }}>
-          התמונות נשמרות רק במכשיר זה ולא מועלות לגיט.
+          העלה קובץ או הדבק קישור תמונה. נשמר במכשיר בלבד, לא בגיט.
         </div>
         {kids.map(kid => (
-          <div key={kid.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div key={kid.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
             <div style={{ width: 44, height: 44, borderRadius: "50%", overflow: "hidden", background: "rgba(255,255,255,0.1)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
               {kid.avatar ? <img src={kid.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : kid.emoji}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>{kid.name}</div>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>{kid.name}</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                 <label style={{ ...actBtn, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", cursor: "pointer" }}>
-                  העלה תמונה
+                  העלה קובץ
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                     const file = e.target.files?.[0];
                     if (!file) return;
@@ -782,6 +784,21 @@ export default function App() {
                   <button onClick={() => { setKids(prev => prev.map(k => k.id === kid.id ? { ...k, avatar: null } : k)); flash("התמונה הוסרה"); }}
                     style={{ ...actBtn, background: "rgba(255,69,58,0.12)", color: "#FF453A" }}>הסר</button>
                 )}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  value={urlInputs[kid.id] || ""}
+                  onChange={e => setUrlInputs(p => ({ ...p, [kid.id]: e.target.value }))}
+                  placeholder="או הדבק קישור תמונה..."
+                  style={{ ...inputStyle, fontSize: 11, flex: 1 }}
+                />
+                <button onClick={() => {
+                  const url = (urlInputs[kid.id] || "").trim();
+                  if (!url) return;
+                  setKids(prev => prev.map(k => k.id === kid.id ? { ...k, avatar: url } : k));
+                  setUrlInputs(p => ({ ...p, [kid.id]: "" }));
+                  flash("!התמונה נשמרה");
+                }} style={{ ...actBtn, background: "rgba(52,199,89,0.15)", color: "#30D158" }}>שמור</button>
               </div>
             </div>
           </div>
@@ -823,7 +840,7 @@ export default function App() {
         </div>
       )}
     </div>
-  );
+  );};
 
   // ─── DEED MODAL ───────────────────────────────────────────────────
   const DeedModalInner = () => {
