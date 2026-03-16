@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   isConfigured, getClient,
   loadKids, loadLogs, loadCustomGoodDeeds, loadCustomBadDeeds,
-  seedKids, upsertKid, insertLog, deleteLog, deleteLogsByIds,
+  seedKids, upsertKid, deleteKid, insertLog, deleteLog, deleteLogsByIds,
   insertCustomGoodDeed, deleteCustomGoodDeed,
   insertCustomBadDeed, deleteCustomBadDeed,
   subscribeToAll,
@@ -156,11 +156,11 @@ export default function App() {
   useEffect(() => { Store.save("goodDeedsConfig", goodDeedsConfig); }, [goodDeedsConfig]);
   useEffect(() => { Store.save("badDeedsConfig", badDeedsConfig); }, [badDeedsConfig]);
 
-  // Merge DB kids with local avatars (avatars are stored locally, not in DB)
+  // Merge DB kids with local avatars (base64 file uploads stay local; URL avatars come from DB)
   const mergeKidsWithAvatars = useCallback((dbKids) => {
     return dbKids.map(k => {
       const local = kidsRef.current.find(d => d.id === k.id);
-      return { ...k, avatar: local?.avatar || null };
+      return { ...k, avatar: local?.avatar || k.avatar || null };
     });
   }, []);
 
@@ -275,6 +275,25 @@ export default function App() {
       deleteLogsByIds(toRemove.map(l => l.id)).catch(console.error);
     }
     flash("!השבוע אופס", "info");
+  };
+
+  const removeKid = (kid) => {
+    if (!confirm(`למחוק את ${kid.name}? כל הרשומות שלו/ה יימחקו גם כן.`)) return;
+    setKids(p => p.filter(k => k.id !== kid.id));
+    setLogs(p => p.filter(l => l.kidId !== kid.id));
+    if (isConfigured()) {
+      skipNextRealtime.current = true;
+      deleteKid(kid.id).catch(console.error); // logs cascade-deleted in DB
+    }
+    flash(`${kid.name} הוסר`);
+  };
+
+  const addKid = (newKid) => {
+    const id = Math.max(0, ...kids.map(k => k.id)) + 1;
+    const kid = { id, ...newKid };
+    setKids(p => [...p, kid]);
+    if (isConfigured()) { skipNextRealtime.current = true; upsertKid(kid).catch(console.error); }
+    flash(`!${kid.name} נוסף`);
   };
 
   // ─── GAUGE ────────────────────────────────────────────────────────
@@ -714,13 +733,18 @@ export default function App() {
     );
   };
 
+  const PRESET_COLORS = ["#FF6B6B","#4ECDC4","#FFD93D","#A78BFA","#34D399","#FB923C","#F472B6","#60A5FA"];
+  const PRESET_EMOJIS = ["😊","🤠","🧙‍♀️","👮","🦁","🐯","🐸","🌟","🎯","🚀","👑","🎨"];
+
   const Settings = () => {
     const [urlInputs, setUrlInputs] = useState({});
+    const [addOpen, setAddOpen] = useState(false);
+    const [newKidData, setNewKidData] = useState({ name: "", age: "", emoji: "😊", color: "#A78BFA" });
     return (
     <div>
       <div style={{ fontSize: 19, fontWeight: 700, color: "#fff", marginBottom: 20 }}>הגדרות</div>
       <div style={cardStyle}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>👨‍👧‍👦 שמות הילדים</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>👨‍👧‍👦 ילדים</div>
         {editNames ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {kids.map(kid => (
@@ -744,11 +768,52 @@ export default function App() {
             {kids.map(kid => (
               <div key={kid.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
                 <span>{kid.emoji}</span>
-                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>{kid.name} (גיל {kid.age})</span>
+                <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, flex: 1 }}>{kid.name} (גיל {kid.age})</span>
+                <button onClick={() => removeKid(kid)}
+                  style={{ background: "none", border: "none", color: "rgba(255,69,58,0.7)", cursor: "pointer", fontSize: 16, padding: "0 4px", lineHeight: 1 }}>✕</button>
               </div>
             ))}
-            <button onClick={() => { const n = {}; kids.forEach(k => n[k.id] = k.name); setTmpNames(n); setEditNames(true); }}
-              style={{ ...actBtn, marginTop: 8, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>ערוך שמות</button>
+            <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+              <button onClick={() => { const n = {}; kids.forEach(k => n[k.id] = k.name); setTmpNames(n); setEditNames(true); }}
+                style={{ ...actBtn, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>ערוך שמות</button>
+              <button onClick={() => setAddOpen(o => !o)}
+                style={{ ...actBtn, background: "rgba(52,199,89,0.12)", color: "#30D158" }}>+ הוסף ילד</button>
+            </div>
+          </div>
+        )}
+        {addOpen && !editNames && (
+          <div style={{ marginTop: 14, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={newKidData.emoji} onChange={e => setNewKidData(p => ({ ...p, emoji: e.target.value }))}
+                style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20 }} maxLength={2} />
+              <input value={newKidData.name} onChange={e => setNewKidData(p => ({ ...p, name: e.target.value }))}
+                style={{ ...inputStyle, flex: 1 }} placeholder="שם" />
+              <input value={newKidData.age} onChange={e => setNewKidData(p => ({ ...p, age: e.target.value }))}
+                style={{ ...inputStyle, width: 56 }} placeholder="גיל" type="number" min="1" max="18" />
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {PRESET_EMOJIS.map(em => (
+                <button key={em} onClick={() => setNewKidData(p => ({ ...p, emoji: em }))}
+                  style={{ background: newKidData.emoji === em ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.05)", border: "none", borderRadius: 8, padding: "4px 6px", cursor: "pointer", fontSize: 18 }}>{em}</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {PRESET_COLORS.map(c => (
+                <button key={c} onClick={() => setNewKidData(p => ({ ...p, color: c }))}
+                  style={{ width: 26, height: 26, borderRadius: "50%", background: c, border: newKidData.color === c ? "3px solid #fff" : "2px solid transparent", cursor: "pointer" }} />
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => {
+                const name = newKidData.name.trim();
+                const age = parseInt(newKidData.age);
+                if (!name || !age) return;
+                addKid({ name, age, emoji: newKidData.emoji, color: newKidData.color, avatar: null });
+                setNewKidData({ name: "", age: "", emoji: "😊", color: "#A78BFA" });
+                setAddOpen(false);
+              }} style={{ ...actBtn, background: "rgba(52,199,89,0.15)", color: "#30D158" }}>שמור</button>
+              <button onClick={() => setAddOpen(false)} style={{ ...actBtn, background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>ביטול</button>
+            </div>
           </div>
         )}
       </div>
@@ -756,7 +821,7 @@ export default function App() {
       <div style={cardStyle}>
         <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", marginBottom: 12 }}>🖼️ תמונות ילדים</div>
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 12 }}>
-          העלה קובץ או הדבק קישור תמונה. נשמר במכשיר בלבד, לא בגיט.
+          קישורי תמונה נשמרים גם בדאטהבייס. קבצים שמועלים נשמרים במכשיר בלבד, לא בגיט.
         </div>
         {kids.map(kid => (
           <div key={kid.id} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>

@@ -24,14 +24,23 @@ export async function loadKids() {
 }
 
 export async function upsertKid(kid) {
+  const avatar = kid.avatar?.startsWith("data:") ? null : (kid.avatar || null);
   const { error } = await getClient().from("kids").upsert({
-    id: kid.id, name: kid.name, age: kid.age, emoji: kid.emoji, color: kid.color,
+    id: kid.id, name: kid.name, age: kid.age, emoji: kid.emoji, color: kid.color, avatar,
   });
   if (error) throw error;
 }
 
+export async function deleteKid(id) {
+  const { error } = await getClient().from("kids").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function seedKids(kids) {
-  const rows = kids.map(k => ({ id: k.id, name: k.name, age: k.age, emoji: k.emoji, color: k.color }));
+  const rows = kids.map(k => ({
+    id: k.id, name: k.name, age: k.age, emoji: k.emoji, color: k.color,
+    avatar: k.avatar?.startsWith("data:") ? null : (k.avatar || null),
+  }));
   const { error } = await getClient().from("kids").upsert(rows);
   if (error) throw error;
 }
