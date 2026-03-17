@@ -25,13 +25,21 @@ export async function loadKids() {
 
 export async function upsertKid(kid) {
   const { error } = await getClient().from("kids").upsert({
-    id: kid.id, name: kid.name, age: kid.age, emoji: kid.emoji, color: kid.color,
+    id: kid.id, name: kid.name, age: kid.age, emoji: kid.emoji, color: kid.color, avatar: null,
   });
   if (error) throw error;
 }
 
+export async function deleteKid(id) {
+  const { error } = await getClient().from("kids").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function seedKids(kids) {
-  const rows = kids.map(k => ({ id: k.id, name: k.name, age: k.age, emoji: k.emoji, color: k.color }));
+  const rows = kids.map(k => ({
+    id: k.id, name: k.name, age: k.age, emoji: k.emoji, color: k.color,
+    avatar: k.avatar?.startsWith("data:") ? null : (k.avatar || null),
+  }));
   const { error } = await getClient().from("kids").upsert(rows);
   if (error) throw error;
 }
@@ -98,8 +106,27 @@ export async function deleteCustomBadDeed(id) {
   if (error) throw error;
 }
 
+// ─── SETTINGS ──────────────────────────────────────────────────────
+export async function loadSettings() {
+  const { data, error } = await getClient().from("settings").select("*");
+  if (error) throw error;
+  const obj = {};
+  for (const row of data) obj[row.key] = row.value;
+  return obj;
+}
+
+export async function upsertSetting(key, value) {
+  const { error } = await getClient().from("settings").upsert({ key, value });
+  if (error) throw error;
+}
+
+export async function deleteSetting(key) {
+  const { error } = await getClient().from("settings").delete().eq("key", key);
+  if (error) throw error;
+}
+
 // ─── REALTIME ──────────────────────────────────────────────────────
-export function subscribeToAll({ onKids, onLogs, onCustomGoodDeeds, onCustomBadDeeds }) {
+export function subscribeToAll({ onKids, onLogs, onCustomGoodDeeds, onCustomBadDeeds, onSettings }) {
   const client = getClient();
   if (!client) return null;
   const channel = client
@@ -108,6 +135,7 @@ export function subscribeToAll({ onKids, onLogs, onCustomGoodDeeds, onCustomBadD
     .on("postgres_changes", { event: "*", schema: "public", table: "logs" }, () => onLogs?.())
     .on("postgres_changes", { event: "*", schema: "public", table: "custom_good_deeds" }, () => onCustomGoodDeeds?.())
     .on("postgres_changes", { event: "*", schema: "public", table: "custom_bad_deeds" }, () => onCustomBadDeeds?.())
+    .on("postgres_changes", { event: "*", schema: "public", table: "settings" }, () => onSettings?.())
     .subscribe();
   return channel;
 }
