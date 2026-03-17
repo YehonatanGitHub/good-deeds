@@ -47,5 +47,18 @@ create policy "Allow all" on logs for all using (true) with check (true);
 create policy "Allow all" on custom_good_deeds for all using (true) with check (true);
 create policy "Allow all" on custom_bad_deeds for all using (true) with check (true);
 
+create table settings (
+  key text primary key,
+  value jsonb not null
+);
+insert into settings (key, value) values
+  ('baseAmount', '5'),
+  ('bonusAmount', '2.5')
+  -- familyName, familyImage, goodDeedsConfig, badDeedsConfig are written by the app on first edit
+on conflict (key) do nothing;
+
+alter table settings enable row level security;
+create policy "Allow all" on settings for all using (true) with check (true);
+
 -- Note: Kids are auto-seeded by the app on first load.
--- After running this, enable Realtime on all 3 tables in Database > Replication.
+-- After running this, enable Realtime on all 5 tables in Database > Replication.
