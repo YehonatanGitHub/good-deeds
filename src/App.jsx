@@ -146,6 +146,8 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(() => isConfigured() ? "connecting" : "offline");
   const skipNextRealtime = useRef(false);
   const kidsRef = useRef(Store.load("kids", KIDS_DEFAULT));
+  const [pullY, setPullY] = useState(0);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
 
   const BASE_AMOUNT = allowanceConfig.baseAmount;
   const BONUS_AMOUNT = allowanceConfig.bonusAmount;
@@ -200,6 +202,74 @@ export default function App() {
     if (data.goodDeedsConfig) { setGoodDeedsConfig(data.goodDeedsConfig); Store.save("goodDeedsConfig", data.goodDeedsConfig); }
     if (data.badDeedsConfig) { setBadDeedsConfig(data.badDeedsConfig); Store.save("badDeedsConfig", data.badDeedsConfig); }
   }, []);
+
+  const reloadAll = useCallback(async () => {
+    if (!isConfigured()) return;
+    setSyncStatus("syncing");
+    try {
+      await Promise.all([reloadKids(), reloadLogs(), reloadCustomGoodDeeds(), reloadCustomBadDeeds(), reloadSettings()]);
+      setSyncStatus("synced");
+    } catch (e) {
+      console.error("Refresh error:", e);
+      setSyncStatus("offline");
+    }
+  }, [reloadKids, reloadLogs, reloadCustomGoodDeeds, reloadCustomBadDeeds, reloadSettings]);
+
+  // Pull-to-refresh (custom implementation for iOS and Android)
+  useEffect(() => {
+    const THRESHOLD = 80;
+    let startY = null;
+    let currentPullY = 0;
+    let isRefreshing = false;
+
+    const onTouchStart = (e) => {
+      if (isRefreshing) return;
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+        currentPullY = 0;
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (startY === null || isRefreshing) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy > 0 && window.scrollY === 0) {
+        e.preventDefault();
+        currentPullY = Math.min(dy, THRESHOLD);
+        setPullY(currentPullY);
+      } else if (dy < 0) {
+        startY = null;
+        currentPullY = 0;
+        setPullY(0);
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (startY !== null && currentPullY >= THRESHOLD) {
+        isRefreshing = true;
+        setPullRefreshing(true);
+        setPullY(THRESHOLD);
+        reloadAll().finally(() => {
+          isRefreshing = false;
+          setPullRefreshing(false);
+          setPullY(0);
+        });
+      } else {
+        setPullY(0);
+      }
+      startY = null;
+      currentPullY = 0;
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: false });
+    document.addEventListener("touchend", onTouchEnd);
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [reloadAll]);
 
   // Connect to Supabase on mount
   useEffect(() => {
@@ -1106,7 +1176,29 @@ export default function App() {
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
         button { font-family: inherit; }
         input, select { font-family: inherit; }
+        @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>
+
+      {/* Pull-to-refresh indicator */}
+      {(pullY > 0 || pullRefreshing) && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 300,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          height: Math.max(pullRefreshing ? 48 : (pullY * 0.6), pullY > 0 ? 8 : 0),
+          background: "linear-gradient(to bottom, rgba(99,102,241,0.15), transparent)",
+          transition: pullRefreshing ? "none" : "height 0.05s",
+          pointerEvents: "none",
+        }}>
+          <div style={{
+            width: 24, height: 24, borderRadius: "50%",
+            border: "2.5px solid rgba(255,255,255,0.12)",
+            borderTop: `2.5px solid ${pullRefreshing ? "#818CF8" : `rgba(129,140,248,${pullY / 80})`}`,
+            animation: pullRefreshing ? "spin 0.75s linear infinite" : "none",
+            transform: pullRefreshing ? "none" : `rotate(${(pullY / 80) * 270}deg)`,
+            opacity: pullRefreshing ? 1 : pullY / 80,
+          }} />
+        </div>
+      )}
 
       <div style={{ position: "absolute", top: -120, left: -80, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(99,102,241,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
 
